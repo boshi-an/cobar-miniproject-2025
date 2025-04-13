@@ -3,6 +3,7 @@ from cobar_miniproject.base_controller import BaseController
 from .utils import get_cpg, step_cpg
 
 
+
 class Controller(BaseController):
     def __init__(
         self,
