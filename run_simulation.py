@@ -73,8 +73,14 @@ def run_simulation(
         if controller.done_level(obs):
             # finish the path integration level
             break
-
-        obs_hist.append(obs)
+            
+        obs_ = obs.copy()
+        if not obs_["vision_updated"]:
+            if "vision" in obs_:
+                del obs_["vision"]
+            if "raw_vision" in obs_:
+                del obs_["raw_vision"]
+        obs_hist.append(obs_)
         info_hist.append(info)
 
         if hasattr(controller, "quit") and controller.quit:
