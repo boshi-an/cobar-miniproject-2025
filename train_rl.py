@@ -75,7 +75,7 @@ def run_simulation(
         return gym_env
 
     # Create the environment
-    # env = SubprocVecEnv([get_env for _ in range(num_envs)], start_method="fork")
+    # env = SubprocVecEnv([get_env for _ in range(num_envs)])
     env =  get_env()
 
     # Initialize the PPO model
