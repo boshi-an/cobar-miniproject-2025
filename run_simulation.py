@@ -8,7 +8,17 @@ from cobar_miniproject import levels
 from cobar_miniproject.cobar_fly import CobarFly
 from flygym import Camera, SingleFlySimulation
 from flygym.arena import FlatTerrain
+from cobar_miniproject.vision import (
+    get_fly_vision,
+    get_fly_vision_raw,
+    render_image_with_vision,
+)
+import cv2
 
+WITH_FLY_VISION = 1
+WITH_RAW_VISION = 2
+
+VISUALISATION_MODE = WITH_FLY_VISION
 
 def run_simulation(
     submission_dir,
@@ -18,6 +28,7 @@ def run_simulation(
     max_steps,
     output_dir="outputs",
     progress=True,
+    show_viewer=False,
 ):
     sys.path.append(str(submission_dir.parent))
     module = importlib.import_module(submission_dir.name)
@@ -58,24 +69,44 @@ def run_simulation(
 
     # run cpg simulation
     obs, info = sim.reset()
-    obs_hist = []
-    info_hist = []
+    # obs_hist = []
+    # info_hist = []
 
     if progress:
         step_range = trange(max_steps)
     else:
         step_range = range(max_steps)
+        
+    # create window
+    if show_viewer:
+        cv2.namedWindow("Simulation", cv2.WINDOW_NORMAL)
 
     for i in step_range:
         # Get observations
         obs, reward, terminated, truncated, info = sim.step(controller.get_actions(obs))
-        sim.render()
+        rendered_img = sim.render()[0]
+        
+        if show_viewer :
+            if rendered_img is not None:
+                
+                if VISUALISATION_MODE == WITH_FLY_VISION:
+                    rendered_img = render_image_with_vision(
+                        rendered_img, get_fly_vision(fly), obs["odor_intensity"],
+                    )
+                elif VISUALISATION_MODE == WITH_RAW_VISION:
+                    rendered_img = render_image_with_vision(
+                        rendered_img, get_fly_vision_raw(fly), obs["odor_intensity"],
+                    )
+                rendered_img = cv2.cvtColor(rendered_img, cv2.COLOR_BGR2RGB)
+                cv2.imshow("Simulation", rendered_img)
+                cv2.waitKey(1)
+        
         if controller.done_level(obs):
             # finish the path integration level
             break
 
-        obs_hist.append(obs)
-        info_hist.append(info)
+        # obs_hist.append(obs)
+        # info_hist.append(info)
 
         if hasattr(controller, "quit") and controller.quit:
             print("Simulation terminated by user.")
@@ -132,6 +163,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Show progress bar during simulation.",
     )
+    parser.add_argument(
+        "--view",
+        action="store_true",
+        help="Show viewer.",
+    )
     args = parser.parse_args()
 
     run_simulation(
@@ -142,4 +178,5 @@ if __name__ == "__main__":
         output_dir=args.output_dir,
         max_steps=args.max_steps,
         progress=args.progress,
+        show_viewer=args.view,
     )
