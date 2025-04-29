@@ -222,7 +222,7 @@ class CNN(nn.Module) :
     def _preprocess_human(self, vision_human) :
 
         vision_human_combined = torch.cat([vision_human[:, :, 0], vision_human[:, :, 1]], dim=3)
-        vision_human_combined_stacked = torch.permute(vision_human_combined, (0, 2, 3, 4, 1))
+        vision_human_combined_stacked = torch.permute(vision_human_combined, (0, 2, 3, 1, 4))
         vision_human_combined_stacked = vision_human_combined_stacked.reshape(*vision_human_combined_stacked.shape[:3], -1)
         return vision_human_combined_stacked
 
@@ -235,7 +235,7 @@ class CNN(nn.Module) :
         vision_human_processed = self._preprocess_human(vision_human)
         mask_human_processed = self._preprocess_human(mask_human)
         
-        
+
 
 if __name__ == "__main__" :
 
