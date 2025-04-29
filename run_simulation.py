@@ -36,7 +36,7 @@ def run_simulation(
     module = importlib.import_module(submission_dir.name)
     if collect_data :
         # Create data collection directory
-        file_id = 0
+        file_id = seed
         data_dir = Path(output_dir) / "data" / str(file_id)
         while data_dir.exists():
             file_id += 1
