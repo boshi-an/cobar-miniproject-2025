@@ -131,6 +131,7 @@ def run_simulation(
                         "mask": mask,
                         "mask_hex": mask_hex,
                         "raw_vision": obs["raw_vision"],
+                        "vision": obs["vision"],
                     }
                 )
 
