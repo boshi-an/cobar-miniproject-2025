@@ -1,4 +1,3 @@
-from curses.ascii import isdigit
 from flygym.vision import Retina
 import cv2
 import numpy as np
@@ -184,6 +183,7 @@ class MyDataSet(torch.utils.data.Dataset) :
                 for file in os.listdir(dir) :
                     if file.endswith(".npz") :
                         tmp_data.append(os.path.join(dir, file))
+                self.possible_idx += [len(self.data) + i for i in range(len(tmp_data) - stack_size + 1)]
                 self.data += tmp_data
     
     def __len__(self) :
@@ -191,6 +191,9 @@ class MyDataSet(torch.utils.data.Dataset) :
     
     def __getitem__(self, idx) :
         data = np.load(self.data[idx])
+        import ipdb
+
+        ipdb.set_trace()
         if self.transform :
             data = self.transform(data)
         return data
@@ -199,4 +202,10 @@ class MyDataSet(torch.utils.data.Dataset) :
 if __name__ == "__main__" :
 
     # Train the vision encoder
-    pass
+    dataset = MyDataSet(
+        data_dir="outputs/data",
+        transform=None,
+        stack_size=3
+    )
+
+    print(dataset[0])
