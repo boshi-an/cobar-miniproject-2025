@@ -1,3 +1,4 @@
+from re import M
 import numpy as np
 from cobar_miniproject.base_controller import Action, BaseController, Observation
 from .utils import get_cpg, step_cpg
@@ -10,7 +11,7 @@ class Controller(BaseController):
         self,
         timestep=1e-4,
         seed=0,
-        speed_scale=1.2
+        speed_scale=1.0
     ):
         from flygym.examples.locomotion import PreprogrammedSteps
 
@@ -22,11 +23,15 @@ class Controller(BaseController):
         
         self.odor_navigator = OdorNavigator(history_length=64)
         self.visual_navigator = VisualNavigator()
-        self.lowlevel_controller = Controller2D(timestep=timestep, seed=seed, leg_step_time=0.01)
+        self.lowlevel_controller = Controller2D(timestep=timestep, seed=seed, leg_step_time=0.005)
 
     def get_actions(self, obs: Observation) -> Action:
         odor_angle = self.odor_navigator.get_odor_angle(obs["odor_intensity"])
-        visual_cmd = self.visual_navigator.get_obstacle_pos(obs["vision"], obs.get("vision_updated", True))
+        visual_cmd = self.visual_navigator.get_obstacle_pos(
+            obs["vision"],
+            obs.get("raw_vision", None),
+            obs.get("vision_updated", True),
+        )
         
         if visual_cmd[0] != 0 or visual_cmd[1] != 0:
             high_level_action = np.array([self.speed_scale * visual_cmd[0], self.speed_scale * visual_cmd[1]])
