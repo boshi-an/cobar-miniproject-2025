@@ -2,6 +2,7 @@ from pathlib import Path
 import importlib
 import argparse
 import sys
+import numpy as np
 from tqdm import trange
 from flygym import Camera
 from cobar_miniproject import levels
@@ -85,8 +86,6 @@ def run_simulation(
 
     # run cpg simulation
     obs, info = sim.reset()
-    obs_hist = []
-    info_hist = []
 
     if progress:
         step_range = trange(max_steps)
@@ -125,13 +124,16 @@ def run_simulation(
             obs_ = obs.copy()
             if collect_data and obs["vision_updated"]:
                 mask, mask_hex = controller.visual_navigator._get_raw_vision_mask(obs["raw_vision"])
+                human_readable = controller.visual_navigator.get_human_readable(obs["vision"])
+                human_readable = np.stack(human_readable, axis=0)
                 # Save raw_vision, mask and mask_hex to data_dir
                 data_saver.append(
                     {
                         "mask": mask,
                         "mask_hex": mask_hex,
                         "raw_vision": obs["raw_vision"],
-                        "vision": obs["vision"],
+                        "human_readable": human_readable,
+                        "vision_hex": obs["vision"],
                     }
                 )
 
@@ -141,8 +143,6 @@ def run_simulation(
                     del obs_["vision"]
                 if "raw_vision" in obs_:
                     del obs_["raw_vision"]
-            obs_hist.append(obs_)
-            info_hist.append(info)
 
             if hasattr(controller, "quit") and controller.quit:
                 print("Simulation terminated by user.")

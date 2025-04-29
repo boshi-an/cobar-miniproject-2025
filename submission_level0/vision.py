@@ -1,3 +1,4 @@
+from turtle import forward
 from flygym.vision import Retina
 import cv2
 import numpy as np
@@ -178,25 +179,43 @@ class MyDataSet(torch.utils.data.Dataset) :
         self.possible_idx = []
         
         for dir in os.listdir(data_dir) :
-            if os.path.isdir(dir) :
+            sub_dir = os.path.join(data_dir, dir)
+            if os.path.isdir(sub_dir) :
                 tmp_data = []
-                for file in os.listdir(dir) :
+                for file in os.listdir(sub_dir) :
                     if file.endswith(".npz") :
-                        tmp_data.append(os.path.join(dir, file))
+                        tmp_data.append(os.path.join(sub_dir, file))
                 self.possible_idx += [len(self.data) + i for i in range(len(tmp_data) - stack_size + 1)]
                 self.data += tmp_data
     
     def __len__(self) :
-        return len(self.data)
+        return len(self.possible_idx)
     
     def __getitem__(self, idx) :
-        data = np.load(self.data[idx])
-        import ipdb
+        stacked_data = {}
+        for i in range(self.stack_size) :
+            frame_idx = i + self.possible_idx[idx]
+            npz_file = np.load(self.data[frame_idx])
+            data = {key: npz_file[key] for key in npz_file.files}
+            if self.transform :
+                data = self.transform(data)
+            for key in data :
+                if key not in stacked_data :
+                    stacked_data[key] = []
+                stacked_data[key].append(data[key])
+        for key in stacked_data :
+            stacked_data[key] = np.stack(stacked_data[key], axis=0)
+        return stacked_data
 
-        ipdb.set_trace()
-        if self.transform :
-            data = self.transform(data)
-        return data
+class CNN(nn.Module) :
+
+    def __init__(self, input_channels=2, stack_frames=3) :
+
+        self.retina = Retina()
+    
+    def forward(data) :
+
+        vision_hex = data["vision"]
 
 
 if __name__ == "__main__" :
@@ -207,5 +226,13 @@ if __name__ == "__main__" :
         transform=None,
         stack_size=3
     )
-
+    import ipdb
+    ipdb.set_trace()
     print(dataset[0])
+
+    dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=32,
+        shuffle=True,
+        num_workers=4
+    )
