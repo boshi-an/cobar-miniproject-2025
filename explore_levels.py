@@ -86,6 +86,8 @@ if __name__ == "__main__":
                     del obs_["vision"]
                 if "raw_vision" in obs_:
                     del obs_["raw_vision"]
+            if "raw_vision" in info:
+                del info["raw_vision"]
             obs_hist.append(obs_)
             info_hist.append(info)
 
