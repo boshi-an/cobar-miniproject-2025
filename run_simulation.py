@@ -56,7 +56,7 @@ def run_simulation(
 
     other_kwargs = {}
     if collect_data :
-        other_kwargs["looming_lambda"] = 3.0
+        other_kwargs["looming_lambda"] = 5.0
 
     if level <= -1:
         level_arena = FlatTerrain()
@@ -123,7 +123,7 @@ def run_simulation(
                 
             obs_ = obs.copy()
             if collect_data and obs["vision_updated"]:
-                mask, mask_hex = controller.visual_navigator._get_raw_vision_mask(obs["raw_vision"])
+                mask, mask_hex = controller.visual_navigator._get_vision_mask(obs["raw_vision"])
                 human_readable = controller.visual_navigator.get_human_readable(obs["vision"])
                 human_readable = np.stack(human_readable, axis=0)
                 # Save raw_vision, mask and mask_hex to data_dir

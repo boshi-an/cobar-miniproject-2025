@@ -79,7 +79,7 @@ class VisualNavigator :
         cv2.imshow("Image", raw_vision[0])
         cv2.waitKey(1)
 
-    def _get_raw_vision_mask(self, raw_vision) :
+    def _get_vision_mask(self, raw_vision) :
 
         mask_list = []
         mask_hex_list = []
@@ -92,7 +92,10 @@ class VisualNavigator :
             mask_hex_list.append(mask_hex)
             mask_list.append(mask)
         
-        return np.stack(mask_list, axis=0), np.stack(mask_hex_list, axis=0)
+        mask_hex = np.stack(mask_hex_list, axis=0)
+        mask_human = self.get_human_readable(mask_hex)    
+        return mask_human, mask_hex
+        # return np.stack(mask_list, axis=0), np.stack(mask_hex_list, axis=0)
         # self.retina.raw_image_to_hex_pxls(filtered_raw)
 
     def get_obstacle_pos(self, hex_pxls, raw_vision, updated) :
@@ -211,12 +214,28 @@ class CNN(nn.Module) :
 
     def __init__(self, input_channels=2, stack_frames=3) :
 
+        super().__init__()
         self.retina = Retina()
+
+        self.conv1 = nn.Conv2d(input_channels * stack_frames, 32, kernel_size=3, stride=1, padding=1)
     
-    def forward(data) :
+    def _preprocess_human(self, vision_human) :
 
-        vision_hex = data["vision"]
+        vision_human_combined = torch.cat([vision_human[:, :, 0], vision_human[:, :, 1]], dim=3)
+        vision_human_combined_stacked = torch.permute(vision_human_combined, (0, 2, 3, 4, 1))
+        vision_human_combined_stacked = vision_human_combined_stacked.reshape(*vision_human_combined_stacked.shape[:3], -1)
+        return vision_human_combined_stacked
 
+    def forward(self, data) :
+
+        vision_hex = data["vision_hex"]
+        vision_human = data["human_readable"]
+        mask_human = data["mask"]
+
+        vision_human_processed = self._preprocess_human(vision_human)
+        mask_human_processed = self._preprocess_human(mask_human)
+        
+        
 
 if __name__ == "__main__" :
 
@@ -226,9 +245,6 @@ if __name__ == "__main__" :
         transform=None,
         stack_size=3
     )
-    import ipdb
-    ipdb.set_trace()
-    print(dataset[0])
 
     dataloader = torch.utils.data.DataLoader(
         dataset,
@@ -236,3 +252,17 @@ if __name__ == "__main__" :
         shuffle=True,
         num_workers=4
     )
+
+    model = CNN()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    criterion = nn.MSELoss()
+
+    for epoch in range(10) :
+        for i, data in enumerate(dataloader) :
+            optimizer.zero_grad()
+            output, loss = model(data)
+            loss.backward()
+            optimizer.step()
+            if i % 10 == 0 :
+                print(f"Epoch {epoch}, Batch {i}, Loss: {loss.item()}")
+    print("Training complete.")
