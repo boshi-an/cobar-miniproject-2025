@@ -31,17 +31,18 @@ def run_simulation(
     output_dir="outputs",
     progress=True,
     show_viewer=False,
-    collect_data=False
+    collect_data=False,
+    collect_path="outputs/data",
 ):
     sys.path.append(str(submission_dir.parent))
     module = importlib.import_module(submission_dir.name)
     if collect_data :
         # Create data collection directory
         file_id = seed
-        data_dir = Path(output_dir) / "data" / str(file_id)
+        data_dir = Path(collect_path) / str(file_id)
         while data_dir.exists():
             file_id += 1
-            data_dir = Path(output_dir) / "data" / str(file_id)
+            data_dir = Path(collect_path) / str(file_id)
         data_dir.mkdir(parents=True, exist_ok=True)
         data_saver = DataSaver(data_dir)
 
@@ -137,6 +138,9 @@ def run_simulation(
                     }
                 )
 
+            if info["flip"] :
+                print("Fly flipped.")
+                break
 
             if not obs_["vision_updated"]:
                 if "vision" in obs_:
@@ -216,6 +220,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Collect visual data.",
     )
+    parser.add_argument(
+        "--collect_path",
+        type=str,
+        help="Path to collect data.",
+    )
     args = parser.parse_args()
 
     run_simulation(
@@ -227,5 +236,6 @@ if __name__ == "__main__":
         max_steps=args.max_steps,
         progress=args.progress,
         show_viewer=args.view,
-        collect_data=args.collect
+        collect_data=args.collect,
+        collect_path=args.collect_path,
     )

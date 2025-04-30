@@ -7,6 +7,8 @@ from collections import deque
 import torch
 import os
 from torch import nn
+from tqdm import tqdm
+import torch.nn.functional as F
 
 class VisualNavigator :
     
@@ -185,7 +187,10 @@ class MyDataSet(torch.utils.data.Dataset) :
             sub_dir = os.path.join(data_dir, dir)
             if os.path.isdir(sub_dir) :
                 tmp_data = []
-                for file in os.listdir(sub_dir) :
+                files = os.listdir(sub_dir)
+                # Sort files by number in the name
+                files.sort(key=lambda x: int(x.split(".")[0]))
+                for file in files :
                     if file.endswith(".npz") :
                         tmp_data.append(os.path.join(sub_dir, file))
                 self.possible_idx += [len(self.data) + i for i in range(len(tmp_data) - stack_size + 1)]
@@ -207,62 +212,118 @@ class MyDataSet(torch.utils.data.Dataset) :
                     stacked_data[key] = []
                 stacked_data[key].append(data[key])
         for key in stacked_data :
-            stacked_data[key] = np.stack(stacked_data[key], axis=0)
+            stacked_data[key] = torch.from_numpy(np.stack(stacked_data[key], axis=0))
         return stacked_data
+
+class DoubleConv(nn.Module):
+    """Two 3x3 convolutions with ReLU and optional BatchNorm"""
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.double_conv = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        return self.double_conv(x)
 
 class CNN(nn.Module) :
 
-    def __init__(self, input_channels=2, stack_frames=3) :
+    def __init__(self, input_channels=1, stack_frames=3, h=256, w=450, features=[32, 64, 128, 256], device="cpu") :
 
         super().__init__()
-        self.retina = Retina()
+        
+        self.downs = nn.ModuleList()
+        self.ups = nn.ModuleList()
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.device = device
 
-        self.conv1 = nn.Conv2d(input_channels * stack_frames, 32, kernel_size=3, stride=1, padding=1)
+        # Input channels
+        in_channels = input_channels * stack_frames
+        out_channels = in_channels
+
+        # Downsampling path
+        for feature in features:
+            self.downs.append(DoubleConv(in_channels, feature))
+            in_channels = feature
+
+        # Bottleneck
+        self.bottleneck = DoubleConv(features[-1], features[-1]*2)
+
+        # Upsampling path
+        for feature in reversed(features):
+            self.ups.append(nn.ConvTranspose2d(feature*2, feature, kernel_size=2, stride=2))
+            self.ups.append(DoubleConv(feature*2, feature))
+
+        # Final output
+        self.final_conv = nn.Conv2d(features[0], out_channels, kernel_size=1)
+
+        # Loss
+        self.loss_func = nn.MSELoss()
     
     def _preprocess_human(self, vision_human) :
 
         vision_human_combined = torch.cat([vision_human[:, :, 0], vision_human[:, :, 1]], dim=3)
         vision_human_combined_stacked = torch.permute(vision_human_combined, (0, 2, 3, 1, 4))
-        vision_human_combined_stacked = vision_human_combined_stacked.reshape(*vision_human_combined_stacked.shape[:3], -1)
+        vision_human_combined_stacked = vision_human_combined_stacked.max(dim=4).values
+        vision_human_combined_stacked = torch.permute(vision_human_combined_stacked, (0, 3, 1, 2)).contiguous()
         return vision_human_combined_stacked
+    
+    def _forward_pass(self, x) :
 
-    def forward(self, data) :
+        skip_connections = []
 
-        vision_hex = data["vision_hex"]
-        vision_human = data["human_readable"]
-        mask_human = data["mask"]
+        for down in self.downs:
+            x = down(x)
+            skip_connections.append(x)
+            x = self.pool(x)
+
+        x = self.bottleneck(x)
+        skip_connections = skip_connections[::-1]
+
+        for idx in range(0, len(self.ups), 2):
+            x = self.ups[idx](x)
+            skip = skip_connections[idx//2]
+            if x.shape != skip.shape:
+                x = F.interpolate(x, size=skip.shape[2:])
+            x = torch.cat((skip, x), dim=1)
+            x = self.ups[idx+1](x)
+
+        return self.final_conv(x)
+
+    def forward(self, data) -> tuple[torch.Tensor, torch.Tensor]:
+
+        vision_human = data["human_readable"].to(self.device).float() / 255
+        mask_human = data["mask"].to(self.device).float() / 255
 
         vision_human_processed = self._preprocess_human(vision_human)
         mask_human_processed = self._preprocess_human(mask_human)
-        
 
+        out = self._forward_pass(vision_human_processed)
 
-if __name__ == "__main__" :
+        loss = self.loss_func(out, mask_human_processed)
+        return out, loss
 
-    # Train the vision encoder
-    dataset = MyDataSet(
-        data_dir="outputs/data",
-        transform=None,
-        stack_size=3
-    )
+    def predict_single_frame(self, data) -> torch.Tensor:
 
-    dataloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=32,
-        shuffle=True,
-        num_workers=4
-    )
+        vision_human = data["human_readable"].to(self.device).float() / 255
+        vision_human = vision_human.unsqueeze(0)
+        vision_human_processed = self._preprocess_human(vision_human)
 
-    model = CNN()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    criterion = nn.MSELoss()
+        if "mask" in data :
+            mask_human = data["mask"].to(self.device).float() / 255
+            mask_human = mask_human.unsqueeze(0)
+            mask_human_processed = self._preprocess_human(mask_human).squeeze(0)
+            mask_human_return = mask_human_processed
+        else :
+            mask_human_return = None
 
-    for epoch in range(10) :
-        for i, data in enumerate(dataloader) :
-            optimizer.zero_grad()
-            output, loss = model(data)
-            loss.backward()
-            optimizer.step()
-            if i % 10 == 0 :
-                print(f"Epoch {epoch}, Batch {i}, Loss: {loss.item()}")
-    print("Training complete.")
+        out = self._forward_pass(vision_human_processed)
+        out = out.squeeze(0)
+        vision_human_processed = vision_human_processed.squeeze(0)
+
+        return out, vision_human_processed, mask_human_return
