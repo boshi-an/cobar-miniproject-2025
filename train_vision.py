@@ -13,6 +13,9 @@ if __name__ == "__main__" :
     parser.add_argument("--data_path", type=str, default="outputs/data", help="Path to the dataset.")
     parser.add_argument("--save_path", type=str, default="outputs/cnn", help="Path to save the trained model.")
     parser.add_argument("--epochs", type=int, default=3, help="Number of epochs to train the model.")
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size.")
+    parser.add_argument("--stack_frames", type=int, default=3, help="Stack how many frames.")
+    parser.add_argument("--lr", type=float, default=1e-3, help="Stack how many frames.")
     args = parser.parse_args()
 
     # Train the vision encoder
@@ -29,7 +32,7 @@ if __name__ == "__main__" :
 
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=32,
+        batch_size=args.batch_size,
         shuffle=True,
         num_workers=4,
         persistent_workers=True
@@ -37,7 +40,7 @@ if __name__ == "__main__" :
 
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset,
-        batch_size=32,
+        batch_size=args.batch_size,
         shuffle=False,
         num_workers=4,
         persistent_workers=True
@@ -51,27 +54,27 @@ if __name__ == "__main__" :
     else :
         device = torch.device("cpu")
 
-    model = CNN(device=device)
+    model = CNN(stack_frames=3, device=device)
     model.to(device)
     print(f"Using device: {device}")
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = nn.BCELoss()
 
-    for epoch in range(10) :
+    for epoch in range(args.epochs) :
         with tqdm(train_dataloader, desc=f"Epoch {epoch}", unit="batch") as pbar:
             for i, data in enumerate(pbar):
                 optimizer.zero_grad()
-                output, loss = model(data)
+                output, loss, info = model(data)
                 loss.backward()
                 optimizer.step()
-                pbar.set_postfix({"Loss": loss.item()})
+                pbar.set_postfix({"Loss": info["loss1"].item()})
         tot_test_loss = 0
         num_test_batches = len(test_dataloader)
         with tqdm(test_dataloader, desc=f"Test {epoch}", unit="batch") as pbar:
             for i, data in enumerate(pbar):
                 with torch.no_grad():
-                    output, loss = model(data)
-                    tot_test_loss += loss.item()
+                    output, loss, info = model(data)
+                    tot_test_loss += info["loss1"].item()
         avg_test_loss = tot_test_loss / num_test_batches
         print(f"Average test loss: {avg_test_loss:.4f}")
         # Save the model

@@ -46,6 +46,7 @@ if __name__ == "__main__" :
             merged_gt = get_merged_gt(data, gt.cpu().numpy())
             merged_out = get_merged_gt(data, out.cpu().numpy())
             merged_all = np.concatenate((merged_gt, merged_out), axis=1)
+
             cv2.imshow("Merged", merged_all)
             if cv2.waitKey(10) & 0xFF == ord('q'):
                 break
