@@ -232,8 +232,8 @@ class DoubleConv(nn.Module):
         return self.double_conv(x)
 
 class CNN(nn.Module) :
-
-    def __init__(self, input_channels=1, stack_frames=3, h=256, w=450, features=[32, 64, 128, 256], device="cpu") :
+    
+    def __init__(self, input_channels=1, stack_frames=3, h=256, w=450, features=[16, 32, 64, 128, 256, 512], device="cpu") :
 
         super().__init__()
         
@@ -263,7 +263,10 @@ class CNN(nn.Module) :
         self.final_conv = nn.Conv2d(features[0], out_channels, kernel_size=1)
 
         # Loss
-        self.loss_func = nn.MSELoss()
+        self.loss_func1 = nn.MSELoss()
+        self.loss_func2 = nn.BCELoss()
+
+        # self._initialize_weights()
     
     def _preprocess_human(self, vision_human) :
 
@@ -273,6 +276,16 @@ class CNN(nn.Module) :
         vision_human_combined_stacked = torch.permute(vision_human_combined_stacked, (0, 3, 1, 2)).contiguous()
         return vision_human_combined_stacked
     
+    def _dice_loss(self) :
+
+        def f(pred, target) :
+            intersection = (pred * target).sum(axis=(1, 2, 3))
+            loss = 1 - (2 * intersection + 1e-9) / (pred.sum(axis=(1, 2, 3)) + target.sum(axis=(1, 2, 3)) + 1e-9)
+
+            return loss.mean()
+        
+        return f
+
     def _forward_pass(self, x) :
 
         skip_connections = []
@@ -302,11 +315,19 @@ class CNN(nn.Module) :
 
         vision_human_processed = self._preprocess_human(vision_human)
         mask_human_processed = self._preprocess_human(mask_human)
+        mask_human_processed = torch.where(
+            mask_human_processed > 0.5,
+            torch.ones_like(mask_human_processed, device=mask_human_processed.device),
+            torch.zeros_like(mask_human_processed, device=mask_human_processed.device)
+        )
 
         out = self._forward_pass(vision_human_processed)
+        out_sigmoid = torch.sigmoid(out)
 
-        loss = self.loss_func(out, mask_human_processed)
-        return out, loss
+        loss1 = self.loss_func1(out, mask_human_processed)
+        loss2 = 0 #self.loss_func2(out_sigmoid, mask_human_processed)
+        loss = loss1
+        return out, loss, {"loss1": loss1, "loss2": loss2}
 
     def predict_single_frame(self, data) -> torch.Tensor:
 
@@ -327,3 +348,13 @@ class CNN(nn.Module) :
         vision_human_processed = vision_human_processed.squeeze(0)
 
         return out, vision_human_processed, mask_human_return
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
