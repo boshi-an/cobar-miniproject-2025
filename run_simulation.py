@@ -102,7 +102,7 @@ def run_simulation(
             # Get observations
             obs, reward, terminated, truncated, info = sim.step(controller.get_actions(obs))
             rendered_img = sim.render()[0]
-            
+     
             if show_viewer :
                 if rendered_img is not None:
                     
