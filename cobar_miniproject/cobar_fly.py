@@ -306,8 +306,7 @@ class CobarFly(Fly):
         # merge the observations
         if self.debug:
             for raw_key in raw_obs:
-                if raw_key not in obs:
-                    obs["debug_" + raw_key] = raw_obs[raw_key]
+                obs["debug_" + raw_key] = raw_obs[raw_key]
 
         return obs
 
