@@ -129,9 +129,13 @@ class BallDetector :
                 self.ball_size.append(0)
                 self.last_result = (False, (0, 0))
             
+            # image = get_merged_gt(data, pred_mask)
+            # import cv2
+            # cv2.imshow("Detector vision" ,image)
+            # cv2.waitKey(1)
+            
             return self.last_result
 
-            # image = get_merged_gt(data, pred_mask)
             
         else :
 
