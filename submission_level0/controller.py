@@ -1,4 +1,4 @@
-from re import M
+import os
 import numpy as np
 from cobar_miniproject.base_controller import Action, BaseController, Observation
 from .utils import get_cpg, step_cpg
@@ -21,10 +21,11 @@ class Controller(BaseController):
         self.cpg_network = get_cpg(timestep=timestep, seed=seed)
         self.preprogrammed_steps = PreprogrammedSteps()
         self.speed_scale = speed_scale
+        self.path = os.path.dirname(os.path.realpath(__file__))
         
         self.odor_navigator = OdorNavigator(history_length=64)
         self.visual_navigator = VisualNavigator()
-        self.ball_detector = BallDetector("outputs/cnn/model_epoch_20.pth")
+        self.ball_detector = BallDetector(os.path.join(self.path, "data/model_epoch_20.pth"))
         self.lowlevel_controller = Controller2D(timestep=timestep, seed=seed, leg_step_time=0.005)
 
     def get_actions(self, obs: Observation) -> Action:
