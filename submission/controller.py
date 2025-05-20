@@ -6,7 +6,7 @@ from .odor import OdorNavigator
 from .vision import VisualNavigator
 from .detector import BallDetector
 from .integrator import PathIntegrator
-from cobar_miniproject.lowlevel_controller import Controller2D
+from .lowlevel_controller import Controller2D
 
 class Controller(BaseController):
     def __init__(

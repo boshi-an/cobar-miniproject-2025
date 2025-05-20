@@ -27,8 +27,7 @@ class Controller2D():
         seed: int = 0,
         leg_step_time=0.025,
     ):
-        """Controller that listens to your keypresses and uses these to
-        modulate CPGs that control fly walking and turning.
+        """Controller that follows a high-level command
 
         Parameters
         ----------
