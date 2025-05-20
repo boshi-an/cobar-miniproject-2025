@@ -144,7 +144,7 @@ class CNN(nn.Module) :
 
         return self.final_conv(x)
 
-    def forward(self, data) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, data) -> tuple[torch.Tensor, torch.Tensor, dict]:
 
         vision_human = data["human_readable"].to(self.device).float() / 255
         mask_human = data["mask"].to(self.device).float() / 255
@@ -165,7 +165,7 @@ class CNN(nn.Module) :
         loss = loss1
         return out, loss, {"loss1": loss1, "loss2": loss2}
 
-    def predict_single_frame(self, data) -> torch.Tensor:
+    def predict_single_frame(self, data) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
         vision_human = data["human_readable"].to(self.device).float() / 255
         vision_human = vision_human.unsqueeze(0)

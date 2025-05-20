@@ -1,15 +1,11 @@
 import torch
 import os
-from torch import nn
-from tqdm import tqdm
-import torch.nn.functional as F
 from flygym.vision import Retina
-from eval_vision import get_merged_gt
-from .cnn import MyDataSet, CNN
+from .cnn import CNN
 from collections import deque
 from scipy.stats import linregress
 import numpy as np
-import cv2
+import tempfile
 
 class BallDetector :
     
@@ -20,7 +16,16 @@ class BallDetector :
         self.monitor_ball_change = monitor_ball_change
         self.retina = Retina()
         self.model = CNN(device=device)
-        self.model.load_state_dict(torch.load(ckpt_path, map_location=device))
+        if not os.path.exists(ckpt_path) :
+            with tempfile.TemporaryDirectory() as tmpdirname:
+                url = "https://www.dropbox.com/scl/fi/98bwnizqhlb7cv7u5ciby/model_epoch_20.pth?rlkey=ah43o7bvxk6f8wfl9q52zap0r&st=s6qgzwnn&dl=0"
+                # Download the model from url
+                download_file = os.path.join(tmpdirname, "model_epoch_20.pth")
+                os.system(f"wget '{url}' -O {download_file}")
+                # Move the model to the specified path
+                self.model.load_state_dict(torch.load(download_file, map_location=device))
+        else :
+            self.model.load_state_dict(torch.load(ckpt_path, map_location=device))
         self.model.to(device)
         self.model.eval()
 

@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.utils.data import Dataset
 from tqdm import tqdm
-from submission_level0.cnn import MyDataSet, CNN
+from submission.cnn import MyDataSet, CNN
 import argparse
 import os
 
