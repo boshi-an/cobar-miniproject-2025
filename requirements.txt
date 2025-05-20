@@ -1,0 +1,6 @@
+numpy
+tqdm
+flygym
+torch
+torchvision
+torchaudio
